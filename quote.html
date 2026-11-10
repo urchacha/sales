@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>견적서 작성</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  // ▼ Supabase 프로젝트 정보 (Project Settings > API). 비워두면 첫 화면에서 입력받아 브라우저에 저장합니다.
+  const SUPABASE_URL = '';
+  const SUPABASE_ANON_KEY = '';
+</script>
+<style>
+:root{
+  --ink:#1b1f24; --muted:#6b7280; --line:#2b2b2b; --soft:#d6d9de;
+  --bg:#e9ecf0; --panel:#fff; --accent:#1f4e8c; --accent-ink:#fff;
+  --edit:#fff7d1; --danger:#b42318; --ok:#067647;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  background:var(--bg);color:var(--ink);font-size:13px}
+button,input,select,textarea{font:inherit;color:inherit}
+.hidden{display:none!important}
+
+/* ---------- 앱 크롬 ---------- */
+.topbar{position:sticky;top:0;z-index:20;background:var(--accent);color:var(--accent-ink);
+  display:flex;align-items:center;gap:4px;padding:0 16px;height:48px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.topbar .brand{font-weight:700;margin-right:16px;white-space:nowrap}
+.topbar .tab{background:none;border:0;color:inherit;opacity:.75;padding:14px 12px;cursor:pointer;border-bottom:3px solid transparent}
+.topbar .tab.on{opacity:1;border-bottom-color:#fff;font-weight:700}
+.topbar .sp{flex:1}
+.topbar .who{opacity:.8;font-size:12px;margin-right:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.btn{border:1px solid var(--soft);background:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:#9aa3ad}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.danger{color:var(--danger)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.topbar .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.5)}
+
+.toolbar{position:sticky;top:48px;z-index:15;background:var(--panel);border-bottom:1px solid var(--soft);
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 16px}
+.toolbar label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+.toolbar select{padding:5px 6px;border:1px solid var(--soft);border-radius:6px;background:#fff;max-width:220px}
+.toolbar .status{margin-left:auto;color:var(--muted);font-size:12px}
+.toolbar .status.dirty{color:#b54708}
+.sep{width:1px;height:22px;background:var(--soft)}
+
+.page{max-width:1100px;margin:0 auto;padding:16px}
+.card{background:var(--panel);border:1px solid var(--soft);border-radius:8px;padding:16px}
+.grid-table{width:100%;border-collapse:collapse;background:#fff}
+.grid-table th,.grid-table td{border-bottom:1px solid #eceef1;padding:8px;text-align:left;vertical-align:middle}
+.grid-table th{background:#f6f7f9;font-weight:600;color:#3b4250;font-size:12px;position:sticky;top:0}
+.grid-table tr.click{cursor:pointer}
+.grid-table tr.click:hover td{background:#f3f7fd}
+.num{text-align:right!important;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:#eef1f5;color:#3b4250}
+.badge.issued{background:#e0ecff;color:#1f4e8c}.badge.won{background:#dcfae6;color:var(--ok)}.badge.lost{background:#fee4e2;color:var(--danger)}
+.page select,.modal select,.page input[type=date]{padding:6px 8px;border:1px solid var(--soft);border-radius:6px;background:#fff}
+.search{padding:7px 10px;border:1px solid var(--soft);border-radius:6px;min-width:240px}
+.row-flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.muted{color:var(--muted)}
+h2{font-size:16px;margin:0 0 12px}
+
+/* 로그인/연결 */
+.center{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.auth{width:100%;max-width:380px}
+.auth h1{font-size:18px;margin:0 0 4px}
+.field{display:flex;flex-direction:column;gap:4px;margin:12px 0}
+.field span{font-size:12px;color:var(--muted)}
+.field input,.field textarea,.field select{padding:8px 10px;border:1px solid var(--soft);border-radius:6px;background:#fff}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.form-grid .full{grid-column:1/-1}
+@media (max-width:640px){.form-grid{grid-template-columns:1fr}}
+
+/* 모달 */
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.modal{background:#fff;border-radius:10px;width:100%;max-width:760px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal.wide{max-width:1000px}
+.modal header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--soft)}
+.modal header h3{margin:0;font-size:15px}
+.modal .body{padding:16px}
+.modal footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--soft)}
+.pick-scroll{max-height:55vh;overflow:auto;border:1px solid #eceef1;border-radius:6px}
+.pick-scroll td{padding:6px 8px}
+.noprice{color:#b54708}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 16px;border-radius:8px;z-index:60;max-width:90vw}
+.toast.err{background:var(--danger)}
+
+/* ---------- 견적서 용지 ---------- */
+.paper-wrap{overflow-x:auto;padding:16px}
+.paper{width:210mm;min-height:297mm;margin:0 auto;background:#fff;padding:11mm 12mm 10mm;
+  box-shadow:0 2px 12px rgba(0,0,0,.15);position:relative;font-size:12px;color:#111}
+.paper input,.paper textarea,.paper select{border:0;background:transparent;padding:1px 2px;width:100%;outline:none;border-radius:2px}
+.paper input:hover,.paper textarea:hover,.paper select:hover{background:var(--edit)}
+.paper input:focus,.paper textarea:focus,.paper select:focus{background:var(--edit);box-shadow:0 0 0 1px #e6c25a}
+.paper textarea{resize:none;overflow:hidden;line-height:1.35;display:block}
+.paper select{appearance:none;-webkit-appearance:none;cursor:pointer}
+
+.p-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #555;padding-bottom:6px}
+.p-brand{display:flex;align-items:center;gap:14px}
+.p-brand .name{font-size:30px;font-weight:700;color:#555;letter-spacing:.5px}
+.p-brand .logo{height:58px;display:flex;align-items:center;justify-content:center}
+.p-brand .logo .g{width:40px;height:40px;background:#3b8fd9;color:#fff;font-weight:700;font-size:30px;display:flex;align-items:center;justify-content:center;border-radius:3px}
+.p-brand .logo small{font-size:10px;color:#3b8fd9;font-weight:700;margin-top:2px}
+.p-brand img{height:58px;width:auto;display:block}
+.p-addr{text-align:right;font-size:10px;line-height:1.6}
+.p-addr b{font-size:12px}
+.p-title{text-align:center;font-size:24px;font-weight:700;letter-spacing:22px;margin:6px 0 10px;padding-left:22px}
+
+.p-info{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.p-to .r{display:grid;grid-template-columns:62px 1fr;align-items:center;min-height:21px}
+.p-to .k{font-weight:700;white-space:nowrap}
+.p-to .k::after{content:" :"}
+.p-to input{font-weight:700}
+.p-to .contact{display:flex;align-items:center;gap:4px}
+.p-to .contact input{flex:1}
+.p-to .contact b{white-space:nowrap}
+
+.p-from{width:100%;border-collapse:collapse;border-top:2px solid #111;border-bottom:2px solid #111;position:relative}
+.p-from td{border-bottom:1px solid #999;padding:2px 4px;height:21px}
+.p-from td.k{width:78px;text-align:center;font-weight:700;white-space:nowrap;letter-spacing:4px}
+.p-from td.k.tight{letter-spacing:0}
+.p-from .stampcell{position:relative}
+.p-from .stamp{position:absolute;right:4px;top:-24px;width:52px;height:52px;object-fit:contain;opacity:.9;pointer-events:none}
+
+.p-amount{display:flex;align-items:baseline;gap:8px;margin:10px 0 4px;font-weight:700;font-size:13px}
+.p-amount .lbl{white-space:nowrap}
+.p-amount .won{margin-left:16px}
+.p-amount .val{min-width:180px;text-align:right;border-bottom:1px solid #111;padding:0 4px;font-size:14px}
+.p-amount select{width:auto;font-weight:400;font-size:12px}
+.p-pj{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:14px 0 4px}
+.p-pj span{font-weight:700;white-space:nowrap}
+.p-pj input{width:260px;text-align:center}
+
+.p-items{width:100%;border-collapse:collapse;table-layout:fixed;border:2px solid #111}
+.p-items th{background:#eee;border:1px solid #555;padding:4px 2px;font-weight:700;letter-spacing:3px}
+.p-items td{border:1px solid #777;padding:2px 3px;vertical-align:middle;height:44px}
+.p-items td.c,.p-items td.c input{text-align:center}
+.p-items td.r,.p-items td.r input{text-align:right}
+.p-items .amt{font-weight:700;padding-right:6px}
+.p-items .pname input{text-align:center}
+.p-items .pname textarea.en{font-size:10.5px;text-align:center}
+.p-items .spec textarea{font-size:11px}
+.p-items .remark textarea{text-align:center;font-size:11px}
+.p-items td.seq{position:relative}
+.row-tools{display:none;position:absolute;left:1px;right:1px;bottom:1px;justify-content:center;gap:1px;flex-wrap:wrap}
+.p-items tr:hover .row-tools{display:flex}
+.row-tools button{border:1px solid #c9ced6;background:#fff;border-radius:3px;font-size:10px;line-height:1;padding:2px 3px;cursor:pointer}
+.p-items .warn{display:block;font-size:10px;color:#b54708;text-align:right}
+.p-items tfoot td{height:24px;font-weight:700;border-top:2px solid #111}
+.p-items tfoot .lbl{text-align:center;letter-spacing:22px}
+
+.p-box{border:1px solid #111;margin-top:6px}
+.p-box .t{display:inline-block;background:#e5e5e5;font-weight:700;padding:1px 8px;letter-spacing:4px;border-right:1px solid #999;border-bottom:1px solid #999}
+.p-box textarea{padding:4px 16px 6px 30px;min-height:24px}
+.p-foot{text-align:center;font-weight:700;letter-spacing:4px;margin-top:6px}
+.add-row{display:flex;gap:8px;justify-content:center;margin:8px 0 0}
+.print-only{display:none}
+
+@media print{
+  @page{size:A4;margin:8mm}
+  body{background:#fff}
+  .no-print,.topbar,.toolbar,.row-tools,.add-row,.toast{display:none!important}
+  .print-only{display:inline!important}
+  .paper-wrap{padding:0;overflow:visible}
+  .paper{box-shadow:none;margin:0;width:auto;min-height:0;padding:0}
+  .paper input,.paper textarea,.paper select{background:transparent!important;box-shadow:none!important}
+  .p-items tr{break-inside:avoid}
+  .p-items .warn{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- 연결 설정 -->
+<div id="connectView" class="center hidden">
+  <div class="card auth">
+    <h1>Supabase 연결</h1>
+    <p class="muted">Project Settings → API 에 있는 값을 입력하세요. 이 브라우저에만 저장됩니다.</p>
+    <label class="field"><span>Project URL</span><input id="cUrl" placeholder="https://xxxx.supabase.co"></label>
+    <label class="field"><span>anon public key</span><input id="cKey" placeholder="eyJhbGciOi..."></label>
+    <button class="btn primary" id="cSave" style="width:100%">연결</button>
+  </div>
+</div>
+
+<!-- 로그인 -->
+<div id="loginView" class="center hidden">
+  <form class="card auth" id="loginForm">
+    <h1>견적서 시스템 로그인</h1>
+    <p class="muted">Supabase Auth 에 등록된 직원 계정으로 로그인하세요.</p>
+    <label class="field"><span>이메일</span><input id="lEmail" type="email" autocomplete="username" required></label>
+    <label class="field"><span>비밀번호</span><input id="lPw" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary" style="width:100%" type="submit">로그인</button>
+    <p style="text-align:center;margin:12px 0 0"><a href="#" id="resetConn" class="muted">연결 설정 변경</a></p>
+  </form>
+</div>
+
+<!-- 앱 -->
+<div id="app" class="hidden">
+  <nav class="topbar">
+    <span class="brand">G+ 견적</span>
+    <button class="tab on" data-view="editor">견적서 작성</button>
+    <button class="tab" data-view="list">견적 목록</button>
+    <button class="tab" data-view="cust">거래처</button>
+    <button class="tab" data-view="company">회사정보</button>
+    <span class="sp"></span>
+    <span class="who" id="who"></span>
+    <button class="btn sm" id="logout">로그아웃</button>
+  </nav>
+
+  <!-- 견적서 작성 -->
+  <section id="editorView">
+    <div class="toolbar">
+      <button class="btn" id="tNew">새 견적</button>
+      <button class="btn primary" id="tSave">저장</button>
+      <button class="btn" id="tCopy">복사해서 새로 작성</button>
+      <button class="btn" id="tPrint">인쇄 / PDF</button>
+      <span class="sep"></span>
+      <label>거래처
+        <select id="custSel"><option value="">— 직접 입력 —</option></select>
+      </label>
+      <button class="btn sm" id="tSaveCust" title="지금 입력한 수신처를 거래처 DB에 추가">＋거래처로 저장</button>
+      <span class="sep"></span>
+      <label>단가 기준
+        <select id="tierSel" data-q="price_tier">
+          <option value="base_price">기준가</option>
+          <option value="dealer_price">딜러가</option>
+          <option value="general_agency_price">일반대리점가</option>
+          <option value="special_agency_price">특별대리점가</option>
+        </select>
+      </label>
+      <label>상태
+        <select data-q="status">
+          <option value="draft">작성중</option><option value="issued">발행</option>
+          <option value="won">수주</option><option value="lost">실주</option>
+        </select>
+      </label>
+      <span class="status" id="saveStatus"></span>
+    </div>
+
+    <div class="paper-wrap">
+      <div class="paper" id="paper">
+        <div class="p-head">
+          <div class="p-brand">
+            <span class="name" id="pBrandName">G Plus KOREA</span>
+            <span id="pLogo" class="logo"><img src="" alt="G+ KOREA"></span>
+          </div>
+          <div class="p-addr"><b>G+ KOREA</b><br><span id="pAddrEn"></span></div>
+        </div>
+        <div class="p-title">見積書</div>
+
+        <div class="p-info">
+          <div class="p-to">
+            <div class="r"><span class="k">견 적 No</span><input data-q="quote_no" id="qNo"></div>
+            <div class="r"><span class="k">견 적 일</span>
+              <span><input type="date" data-q="quote_date" class="no-print"><span class="print-only" id="qDateTxt"></span></span></div>
+            <div class="r"><span class="k">납 기 일</span><input data-q="delivery_term"></div>
+            <div class="r"><span class="k">수 신</span><input data-q="to_company" placeholder="거래처명"></div>
+            <div class="r"><span></span><span class="contact"><input data-q="to_contact" placeholder="담당자 직함"><b>貴下</b></span></div>
+            <div class="r"><span class="k">전 화</span><input data-q="to_phone"></div>
+            <div class="r"><span class="k">팩 스</span><input data-q="to_fax"></div>
+            <div class="r"><span class="k">Mobile</span><input data-q="to_mobile"></div>
+          </div>
+          <table class="p-from">
+            <tr><td class="k">상 호</td><td class="stampcell"><span id="fCompany"></span><img id="fStamp" class="stamp hidden" alt=""></td></tr>
+            <tr><td class="k">주 소</td><td id="fAddr1"></td></tr>
+            <tr><td class="k"></td><td id="fAddr2"></td></tr>
+            <tr><td class="k tight">E-MAIL</td><td id="fEmail"></td></tr>
+            <tr><td class="k">팩 스</td><td id="fFax"></td></tr>
+            <tr><td class="k tight">견적담당</td><td><input data-q="manager_name"></td></tr>
+            <tr><td class="k">연 락 처</td><td><input data-q="manager_phone"></td></tr>
+          </table>
+        </div>
+
+        <div class="p-amount">
+          <span class="lbl">견적금액 :</span><span class="won">₩</span>
+          <span class="val" id="pTotal">0</span>
+          <select data-q="vat_mode"><option value="excluded">(V.A.T 별도)</option><option value="included">(V.A.T 포함)</option></select>
+        </div>
+        <div class="p-pj"><span>P.J :</span><input data-q="project_name" placeholder="프로젝트명"></div>
+
+        <table class="p-items">
+          <colgroup><col style="width:6%"><col style="width:17%"><col style="width:23%"><col style="width:7%"><col style="width:8%"><col style="width:12%"><col style="width:13%"><col style="width:14%"></colgroup>
+          <thead><tr><th>순서</th><th>품 명</th><th>규 격</th><th>수량</th><th>단 위</th><th>단 가</th><th>금 액</th><th>비 고</th></tr></thead>
+          <tbody id="itemsBody"></tbody>
+          <tfoot id="itemsFoot"></tfoot>
+        </table>
+        <div class="add-row">
+          <button class="btn sm" id="addFromPrice">＋ 가격표에서 품목 추가</button>
+          <button class="btn sm" id="addBlank">＋ 직접 입력 행 추가</button>
+        </div>
+
+        <div class="p-box"><span class="t">참고사항</span><textarea data-q="notes" rows="3"></textarea></div>
+        <div class="p-box"><span class="t">특기사항</span><textarea data-q="remarks" rows="2"></textarea></div>
+        <div class="p-foot" id="pFoot"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 견적 목록 -->
+  <section id="listView" class="page hidden">
+    <div class="card">
+      <h2>견적 목록</h2>
+      <div class="row-flex">
+        <input class="search" id="qSearch" placeholder="견적번호 · 거래처 · 프로젝트 검색">
+        <label class="muted">기간 <input type="date" id="qFrom"> ~ <input type="date" id="qTo"></label>
+        <select id="qStatus"><option value="">전체 상태</option><option value="draft">작성중</option><option value="issued">발행</option><option value="won">수주</option><option value="lost">실주</option></select>
+        <button class="btn" id="qReload">조회</button>
+      </div>
+      <div style="overflow:auto">
+        <table class="grid-table">
+          <thead><tr><th>견적번호</th><th>견적일</th><th>거래처</th><th>프로젝트</th><th class="num">견적금액</th><th>상태</th><th></th></tr></thead>
+          <tbody id="qList"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 거래처 -->
+  <section id="custView" class="page hidden">
+    <div class="card">
+      <h2>거래처 관리</h2>
+      <div class="row-flex">
+        <input class="search" id="cSearch" placeholder="상호 · 담당자 · 전화 검색">
+        <label class="muted"><input type="checkbox" id="cShowInactive"> 사용중지 포함</label>
+        <span style="flex:1"></span>
+        <button class="btn primary" id="cNew">＋ 새 거래처</button>
+      </div>
+      <div style="overflow:auto">
+        <table class="grid-table">
+          <thead><tr><th>상호</th><th>담당자</th><th>전화</th><th>팩스</th><th>휴대폰</th><th>이메일</th><th>상태</th></tr></thead>
+          <tbody id="cList"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 회사정보 -->
+  <section id="companyView" class="page hidden">
+    <form class="card" id="companyForm" style="max-width:760px;margin:0 auto">
+      <h2>회사정보 (견적서 공급자란)</h2>
+      <div class="form-grid">
+        <label class="field"><span>상호</span><input name="company_name" required></label>
+        <label class="field"><span>브랜드 표기 (좌측 상단)</span><input name="brand_name"></label>
+        <label class="field full"><span>주소 1행</span><input name="address_line1"></label>
+        <label class="field full"><span>주소 2행</span><input name="address_line2"></label>
+        <label class="field full"><span>영문 주소 (우측 상단, ' / ' 로 줄바꿈)</span><input name="address_en"></label>
+        <label class="field"><span>E-MAIL</span><input name="email"></label>
+        <label class="field"><span>팩스</span><input name="fax"></label>
+        <label class="field"><span>기본 견적담당</span><input name="manager_name"></label>
+        <label class="field"><span>기본 연락처</span><input name="manager_phone"></label>
+        <label class="field"><span>로고 이미지 URL (선택)</span><input name="logo_url" placeholder="https://..."></label>
+        <label class="field"><span>직인 이미지 URL (선택)</span><input name="stamp_url" placeholder="https://..."></label>
+        <label class="field"><span>견적번호 접두어</span><input name="quote_prefix" maxlength="10"></label>
+        <label class="field full"><span>기본 참고사항</span><textarea name="default_notes" rows="4"></textarea></label>
+      </div>
+      <div style="text-align:right"><button class="btn primary" type="submit">저장</button></div>
+    </form>
+  </section>
+</div>
+
+<!-- 품목 선택 모달 -->
+<div class="modal-bg hidden" id="pickModal">
+  <div class="modal wide">
+    <header><h3 id="pickTitle">가격표에서 품목 선택</h3><button class="btn sm" data-close>닫기</button></header>
+    <div class="body">
+      <div class="row-flex">
+        <select id="pType"><option value="">전체 제품형태</option></select>
+        <select id="pSeries"><option value="">전체 시리즈</option></select>
+        <input class="search" id="pSearch" placeholder="규격 검색 (예: GPB090, L2)">
+        <span class="muted" id="pCount"></span>
+      </div>
+      <div class="pick-scroll">
+        <table class="grid-table">
+          <thead><tr><th>시리즈</th><th>규격</th><th>단수</th><th>등급</th><th>제품명칭</th><th>정밀도</th><th class="num" id="pTierHead">기준가</th><th class="num">기준가</th></tr></thead>
+          <tbody id="pList"></tbody>
+        </table>
+      </div>
+      <p class="muted" style="margin:8px 0 0">행을 클릭하면 견적서에 추가됩니다. 여러 개를 연달아 추가할 수 있습니다.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 거래처 편집 모달 -->
+<div class="modal-bg hidden" id="custModal">
+  <form class="modal" id="custForm">
+    <header><h3 id="custTitle">거래처</h3><button class="btn sm" type="button" data-close>닫기</button></header>
+    <div class="body form-grid">
+      <label class="field full"><span>상호 *</span><input name="company_name" required></label>
+      <label class="field"><span>담당자</span><input name="contact_name"></label>
+      <label class="field"><span>직함</span><input name="contact_title"></label>
+      <label class="field"><span>전화</span><input name="phone"></label>
+      <label class="field"><span>팩스</span><input name="fax"></label>
+      <label class="field"><span>휴대폰</span><input name="mobile"></label>
+      <label class="field"><span>이메일</span><input name="email"></label>
+      <label class="field full"><span>주소</span><input name="address"></label>
+      <label class="field"><span>사업자등록번호</span><input name="biz_no"></label>
+      <label class="field"><span>상태</span><select name="is_active"><option value="true">사용</option><option value="false">사용중지</option></select></label>
+      <label class="field full"><span>메모</span><textarea name="memo" rows="2"></textarea></label>
+    </div>
+    <footer>
+      <button class="btn danger" type="button" id="custDel">삭제</button>
+      <span style="flex:1"></span>
+      <button class="btn" type="button" data-close>취소</button>
+      <button class="btn primary" type="submit">저장</button>
+    </footer>
+  </form>
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script>
+(() => {
+const LS_CONN = 'gq_supabase_conn';
+const TIER_LABEL = {base_price:'기준가', dealer_price:'딜러가', general_agency_price:'일반대리점가', special_agency_price:'특별대리점가'};
+const STATUS_LABEL = {draft:'작성중', issued:'발행', won:'수주', lost:'실주'};
+// 제품명칭 → 영문 품명 (견적서 품명 2행)
+const EN_NAME = {
+  '정밀 유성감속기':'Precision Planetary Gearbox', '베벨출력 유성감속기':'Right-angle Planetary Gearbox',
+  '스퍼 유성감속기':'Spur Planetary Gearbox', '헬리컬 할로우 로터리 플랫폼':'Hollow Rotary Platform',
+  '할로우 로터리 플랫폼':'Hollow Rotary Platform', '할로우 인덱싱 테이블':'Hollow Indexing Table',
+  '직각 감속기':'Right-angle Gearbox', '웜로터리 테이블':'Worm Rotary Table',
+  '고토크 로터리 스테이지':'High-torque Rotary Stage', '고정밀 로터리 스테이지':'Precision Rotary Stage',
+  '캠인덱서':'Cam Indexer', '피치 슬라이더':'Pitch Slider', '전동 슬라이더':'Electric Slider',
+  '다이렉트 드라이브 모터':'Direct Drive Motor', '하모닉 드라이브 감속기':'Harmonic Drive Gearbox',
+  '유성감속기':'Planetary Gearbox', '할로우 액추에이터':'Hollow Rotary Actuator'
+};
+const QUOTE_FIELDS = ['id','quote_no','quote_date','delivery_term','project_name','customer_id','to_company','to_contact',
+  'to_phone','to_fax','to_mobile','manager_name','manager_phone','price_tier','vat_mode','notes','remarks','status'];
+const MIN_ROWS = 7;
+// 기본 로고 (회사정보에 로고 URL을 넣으면 그 이미지로 대체)
+const DEFAULT_LOGO = 'data:image/png;base64,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';
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n = Number(String(v ?? '').replace(/[^\d.\-]/g, '')); return Number.isFinite(n) ? n : 0; };
+const fmt = n => (Math.round(n) || 0).toLocaleString('ko-KR');
+const today = () => new Date().toLocaleDateString('sv-SE');
+const korDate = d => { if (!d) return ''; const [y,m,dd] = d.split('-'); return `${y}년 ${+m}월 ${+dd}일`; };
+
+let sb = null;
+const S = { profile:{}, customers:[], prices:[], priceById:new Map(), q:{}, items:[], dirty:false, quotes:[], pickTarget:null, editCust:null };
+
+// ---------- 공통 ----------
+let toastTimer;
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (err ? ' err' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), err ? 5000 : 2200);
+}
+function fail(e) { console.error(e); toast(e?.message || String(e), true); }
+function showOnly(id) { ['#connectView','#loginView','#app'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function openModal(id) { $(id).classList.remove('hidden'); }
+function closeModal(id) { $(id).classList.add('hidden'); }
+$$('.modal-bg').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) closeModal('#' + m.id); });
+});
+function autosize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+
+// ---------- 연결 / 로그인 ----------
+function getConn() {
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) return {url:SUPABASE_URL, key:SUPABASE_ANON_KEY};
+  try { return JSON.parse(localStorage.getItem(LS_CONN) || 'null'); } catch { return null; }
+}
+$('#cSave').onclick = () => {
+  const url = $('#cUrl').value.trim().replace(/\/+$/, ''), key = $('#cKey').value.trim();
+  if (!url || !key) return toast('URL 과 키를 모두 입력하세요.', true);
+  try { localStorage.setItem(LS_CONN, JSON.stringify({url, key})); } catch {}
+  boot();
+};
+$('#resetConn').onclick = e => {
+  e.preventDefault();
+  if (SUPABASE_URL) return toast('연결 정보가 HTML 파일에 고정되어 있습니다.', true);
+  try { localStorage.removeItem(LS_CONN); } catch {}
+  showOnly('#connectView');
+};
+$('#loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const { error } = await sb.auth.signInWithPassword({ email: $('#lEmail').value.trim(), password: $('#lPw').value });
+  if (error) return toast('로그인 실패: ' + error.message, true);
+  startApp();
+};
+$('#logout').onclick = async () => {
+  if (S.dirty && !confirm('저장하지 않은 내용이 있습니다. 로그아웃할까요?')) return;
+  await sb.auth.signOut(); S.dirty = false; showOnly('#loginView');
+};
+
+async function boot() {
+  const c = getConn();
+  if (!c) { showOnly('#connectView'); return; }
+  try { sb = window.supabase.createClient(c.url, c.key); }
+  catch (e) { fail(e); showOnly('#connectView'); return; }
+  const { data } = await sb.auth.getSession();
+  if (!data.session) { showOnly('#loginView'); return; }
+  startApp();
+}
+
+async function startApp() {
+  showOnly('#app');
+  const { data: u } = await sb.auth.getUser();
+  $('#who').textContent = u?.user?.email || '';
+  try {
+    await Promise.all([loadProfile(), loadCustomers(), loadPrices()]);
+    newQuote(true);
+  } catch (e) { fail(e); }
+}
+
+// ---------- 데이터 로드 ----------
+async function loadProfile() {
+  const { data, error } = await sb.from('company_profile').select('*').eq('id', 1).maybeSingle();
+  if (error) throw error;
+  S.profile = data || {};
+  renderProfile();
+}
+async function loadCustomers() {
+  const { data, error } = await sb.from('customers').select('*').order('company_name');
+  if (error) throw error;
+  S.customers = data || [];
+  renderCustSelect(); renderCustList();
+}
+async function loadPrices() {
+  const { data, error } = await sb.from('price_list')
+    .select('id,drive_type,product_type,gear_type,product_name,product_feature,series,model_code,stage,grade,precision_arcmin,base_price,dealer_price,general_agency_price,special_agency_price')
+    .order('id').range(0, 4999);
+  if (error) throw error;
+  S.prices = data || [];
+  S.priceById = new Map(S.prices.map(p => [p.id, p]));
+  const types = [...new Set(S.prices.map(p => p.product_name || p.product_type).filter(Boolean))];
+  $('#pType').innerHTML = '<option value="">전체 제품명칭</option>' + types.map(t => `<option>${esc(t)}</option>`).join('');
+}
+
+// ---------- 회사정보 ----------
+function renderProfile() {
+  const p = S.profile;
+  $('#pBrandName').textContent = p.brand_name || '';
+  $('#pLogo').innerHTML = p.logo_url ? `<img src="${esc(p.logo_url)}" alt="">` : `<img src="${DEFAULT_LOGO}" alt="G+ KOREA">`;
+  $('#pAddrEn').innerHTML = (p.address_en || '').split(' / ').map(esc).join('<br>');
+  $('#fCompany').textContent = p.company_name || '';
+  $('#fAddr1').textContent = p.address_line1 || '';
+  $('#fAddr2').textContent = p.address_line2 || '';
+  $('#fEmail').textContent = p.email || '';
+  $('#fFax').textContent = p.fax || '';
+  $('#pFoot').textContent = p.company_name || '';
+  const st = $('#fStamp');
+  if (p.stamp_url) { st.src = p.stamp_url; st.classList.remove('hidden'); } else st.classList.add('hidden');
+  const f = $('#companyForm');
+  ['company_name','brand_name','address_line1','address_line2','address_en','email','fax','manager_name','manager_phone','logo_url','stamp_url','quote_prefix','default_notes']
+    .forEach(k => { f.elements[k].value = p[k] ?? ''; });
+}
+$('#companyForm').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target, row = { id: 1 };
+  [...f.elements].filter(el => el.name).forEach(el => { row[el.name] = el.value.trim() || null; });
+  const { data, error } = await sb.from('company_profile').upsert(row).select().single();
+  if (error) return fail(error);
+  S.profile = data; renderProfile(); toast('회사정보를 저장했습니다.');
+};
+
+// ---------- 견적서 편집 ----------
+function blankItem() { return { price_list_id:null, product_name:'', product_name_en:'', spec:'', qty:1, unit:'EA', unit_price:0, remark:'' }; }
+
+async function newQuote(force) {
+  if (!force && S.dirty && !confirm('저장하지 않은 내용이 있습니다. 새 견적을 작성할까요?')) return;
+  const p = S.profile;
+  S.q = { id:null, quote_no:'', quote_date:today(), delivery_term:'발주 후 4~6주', project_name:'', customer_id:null,
+    to_company:'', to_contact:'', to_phone:'', to_fax:'', to_mobile:'',
+    manager_name:p.manager_name || '', manager_phone:p.manager_phone || '',
+    price_tier:'base_price', vat_mode:'excluded', notes:p.default_notes || '', remarks:'', status:'draft' };
+  S.items = [];
+  fillEditor(); setDirty(false); switchView('editor');
+  previewQuoteNo();
+}
+async function previewQuoteNo() {
+  const { data } = await sb.rpc('next_quote_no', { p_date: S.q.quote_date || today() });
+  $('#qNo').placeholder = data ? `${data} (저장 시 자동 부여)` : '저장 시 자동 부여';
+}
+
+function fillEditor() {
+  $$('[data-q]').forEach(el => { el.value = S.q[el.dataset.q] ?? ''; });
+  $('#custSel').value = S.q.customer_id ? String(S.q.customer_id) : '';
+  $('#qDateTxt').textContent = korDate(S.q.quote_date);
+  renderItems();
+  $$('.paper textarea').forEach(autosize);
+}
+
+function setDirty(v) {
+  S.dirty = v;
+  const s = $('#saveStatus');
+  s.classList.toggle('dirty', v);
+  s.textContent = v ? '● 저장하지 않은 변경사항' : (S.q.id ? `저장됨 · ${S.q.quote_no}` : '새 견적');
+}
+
+$$('[data-q]').forEach(el => {
+  const ev = el.tagName === 'SELECT' || el.type === 'date' ? 'change' : 'input';
+  el.addEventListener(ev, () => {
+    const k = el.dataset.q, old = S.q[k];
+    S.q[k] = el.value;
+    if (el.tagName === 'TEXTAREA') autosize(el);
+    if (k === 'quote_date') { $('#qDateTxt').textContent = korDate(el.value); if (!S.q.id) previewQuoteNo(); }
+    if (k === 'vat_mode') renderTotals();
+    if (k === 'price_tier') onTierChange(old);
+    setDirty(true);
+  });
+});
+
+function onTierChange() {
+  const linked = S.items.filter(it => it.price_list_id);
+  if (!linked.length) return;
+  if (!confirm(`가격표에서 가져온 품목 ${linked.length}건의 단가를 '${TIER_LABEL[S.q.price_tier]}'으로 바꿀까요?\n(취소하면 기존 단가 유지)`)) return;
+  let missing = 0;
+  linked.forEach(it => {
+    const v = S.priceById.get(it.price_list_id)?.[S.q.price_tier];
+    if (v == null) missing++; else it.unit_price = Number(v);
+  });
+  renderItems();
+  if (missing) toast(`${missing}건은 해당 단가가 가격표에 없어 기존 단가를 유지했습니다.`, true);
+}
+
+// 품목 표
+function renderItems() {
+  const rows = S.items.map((it, i) => {
+    const ref = it.price_list_id ? S.priceById.get(it.price_list_id) : null;
+    const noPrice = ref && ref[S.q.price_tier] == null;
+    return `<tr data-i="${i}">
+      <td class="c seq">${i + 1}
+        <div class="row-tools">
+          <button data-act="up" title="위로">▲</button><button data-act="down" title="아래로">▼</button>
+          <button data-act="pick" title="가격표에서 바꾸기">🔍</button><button data-act="del" title="삭제">✕</button>
+        </div></td>
+      <td class="pname"><input data-k="product_name" value="${esc(it.product_name)}" placeholder="품명">
+        <textarea class="en" data-k="product_name_en" rows="1" placeholder="(영문 품명)">${esc(it.product_name_en)}</textarea></td>
+      <td class="spec"><textarea data-k="spec" rows="1" placeholder="규격 (여러 줄 가능)">${esc(it.spec)}</textarea></td>
+      <td class="c"><input data-k="qty" inputmode="decimal" value="${esc(it.qty)}"></td>
+      <td class="c"><input data-k="unit" value="${esc(it.unit)}"></td>
+      <td class="r"><input data-k="unit_price" inputmode="numeric" value="${fmt(it.unit_price)}">${noPrice ? '<span class="warn">가격표 단가 없음</span>' : ''}</td>
+      <td class="r amt" data-amt>${fmt(num(it.qty) * num(it.unit_price))}</td>
+      <td class="c remark"><textarea data-k="remark" rows="1">${esc(it.remark)}</textarea></td>
+    </tr>`;
+  });
+  for (let i = S.items.length; i < MIN_ROWS; i++) rows.push('<tr class="filler"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>');
+  $('#itemsBody').innerHTML = rows.join('');
+  $$('#itemsBody textarea').forEach(autosize);
+  renderTotals();
+}
+
+function totals() {
+  const supply = S.items.reduce((s, it) => s + Math.round(num(it.qty) * num(it.unit_price)), 0);
+  const vat = S.q.vat_mode === 'included' ? Math.round(supply * 0.1) : 0;
+  return { supply, vat, total: supply + vat };
+}
+function renderTotals() {
+  const t = totals();
+  $('#pTotal').textContent = fmt(t.total);
+  const foot = S.q.vat_mode === 'included'
+    ? `<tr><td colspan="6" class="lbl">공급가액</td><td class="r amt">${fmt(t.supply)}</td><td></td></tr>
+       <tr><td colspan="6" class="lbl">부가세</td><td class="r amt">${fmt(t.vat)}</td><td></td></tr>
+       <tr><td colspan="6" class="lbl">합계</td><td class="r amt">${fmt(t.total)}</td><td></td></tr>`
+    : `<tr><td colspan="4" class="lbl">합계</td><td colspan="2" class="c">TOTAL</td><td class="r amt">${fmt(t.total)}</td><td></td></tr>`;
+  $('#itemsFoot').innerHTML = foot;
+}
+
+$('#itemsBody').addEventListener('input', e => {
+  const el = e.target, tr = el.closest('tr[data-i]'); if (!tr || !el.dataset.k) return;
+  const it = S.items[+tr.dataset.i], k = el.dataset.k;
+  it[k] = (k === 'qty' || k === 'unit_price') ? num(el.value) : el.value;
+  if (el.tagName === 'TEXTAREA') autosize(el);
+  if (k === 'qty' || k === 'unit_price') {
+    tr.querySelector('[data-amt]').textContent = fmt(num(it.qty) * num(it.unit_price));
+    renderTotals();
+  }
+  setDirty(true);
+});
+$('#itemsBody').addEventListener('focusout', e => {
+  if (e.target.dataset.k === 'unit_price') { const tr = e.target.closest('tr[data-i]'); e.target.value = fmt(S.items[+tr.dataset.i].unit_price); }
+});
+$('#itemsBody').addEventListener('focusin', e => {
+  if (e.target.dataset.k === 'unit_price') { const v = num(e.target.value); e.target.value = v || ''; }
+});
+$('#itemsBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const i = +b.closest('tr').dataset.i, a = b.dataset.act;
+  if (a === 'del') { S.items.splice(i, 1); }
+  else if (a === 'up' && i > 0) { [S.items[i - 1], S.items[i]] = [S.items[i], S.items[i - 1]]; }
+  else if (a === 'down' && i < S.items.length - 1) { [S.items[i + 1], S.items[i]] = [S.items[i], S.items[i + 1]]; }
+  else if (a === 'pick') { openPicker(i); return; }
+  else return;
+  renderItems(); setDirty(true);
+});
+$('#addBlank').onclick = () => { S.items.push(blankItem()); renderItems(); setDirty(true);
+  $(`#itemsBody tr[data-i="${S.items.length - 1}"] [data-k="product_name"]`)?.focus(); };
+$('#addFromPrice').onclick = () => openPicker(null);
+
+// ---------- 가격표 선택 ----------
+function openPicker(target) {
+  S.pickTarget = target;
+  $('#pickTitle').textContent = target == null ? '가격표에서 품목 추가' : `${target + 1}번 품목을 가격표에서 바꾸기`;
+  $('#pTierHead').textContent = TIER_LABEL[S.q.price_tier];
+  openModal('#pickModal'); renderPicker(); $('#pSearch').focus();
+}
+function renderPicker() {
+  const type = $('#pType').value, ser = $('#pSeries').value, q = $('#pSearch').value.trim().toUpperCase();
+  const byType = S.prices.filter(p => !type || (p.product_name || p.product_type) === type);
+  const series = [...new Set(byType.map(p => p.series))];
+  const prevSer = ser;
+  $('#pSeries').innerHTML = '<option value="">전체 시리즈</option>' + series.map(s => `<option>${esc(s)}</option>`).join('');
+  $('#pSeries').value = series.includes(prevSer) ? prevSer : '';
+  const sv = $('#pSeries').value, terms = q.split(/\s+/).filter(Boolean);
+  const list = byType.filter(p => (!sv || p.series === sv) &&
+    terms.every(t => `${p.model_code} ${p.series} ${p.grade || ''} ${p.product_name || ''}`.toUpperCase().includes(t)));
+  const tier = S.q.price_tier;
+  $('#pCount').textContent = `${list.length}건`;
+  $('#pList').innerHTML = list.slice(0, 400).map(p => `<tr class="click" data-id="${p.id}">
+    <td>${esc(p.series)}</td><td><b>${esc(p.model_code)}</b></td><td>${esc(p.stage)}</td><td>${esc(p.grade)}</td>
+    <td>${esc(p.product_name)}</td><td>${p.precision_arcmin != null ? esc(p.precision_arcmin) + "'" : ''}</td>
+    <td class="num ${p[tier] == null ? 'noprice' : ''}">${p[tier] == null ? '없음' : fmt(p[tier])}</td>
+    <td class="num">${p.base_price == null ? '-' : fmt(p.base_price)}</td></tr>`).join('')
+    || '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px">검색 결과가 없습니다.</td></tr>';
+}
+['#pType','#pSeries'].forEach(s => $(s).addEventListener('change', renderPicker));
+$('#pSearch').addEventListener('input', renderPicker);
+$('#pList').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-id]'); if (!tr) return;
+  const p = S.priceById.get(+tr.dataset.id), price = p[S.q.price_tier];
+  const name = p.product_name || p.product_type || '';
+  const fromPrice = { price_list_id:p.id, product_name:name, product_name_en:(EN_NAME[name] || EN_NAME[p.product_type]) ? `(${EN_NAME[name] || EN_NAME[p.product_type]})` : '',
+    spec:p.model_code + (p.grade ? '-' + p.grade : ''), unit_price:price == null ? 0 : Number(price) };
+  if (S.pickTarget == null) {
+    S.items.push({ ...blankItem(), ...fromPrice });
+    toast(`${p.model_code} 추가됨` + (price == null ? ' (단가 없음 — 직접 입력하세요)' : ''), price == null);
+  } else {
+    const it = S.items[S.pickTarget];
+    Object.assign(it, fromPrice);
+    closeModal('#pickModal');
+  }
+  renderItems(); setDirty(true);
+});
+
+// ---------- 거래처 선택 ----------
+function renderCustSelect() {
+  const sel = $('#custSel'), cur = sel.value;
+  sel.innerHTML = '<option value="">— 직접 입력 —</option>' + S.customers
+    .filter(c => c.is_active || String(c.id) === String(S.q.customer_id))
+    .map(c => `<option value="${c.id}">${esc(c.company_name)}${c.contact_name ? ' · ' + esc(c.contact_name) : ''}</option>`).join('');
+  sel.value = cur;
+}
+$('#custSel').onchange = e => {
+  const c = S.customers.find(x => String(x.id) === e.target.value);
+  S.q.customer_id = c ? c.id : null;
+  if (c) Object.assign(S.q, {
+    to_company: c.company_name || '', to_contact: [c.contact_name, c.contact_title].filter(Boolean).join(' '),
+    to_phone: c.phone || '', to_fax: c.fax || '', to_mobile: c.mobile || '' });
+  ['to_company','to_contact','to_phone','to_fax','to_mobile'].forEach(k => { $(`.paper [data-q="${k}"]`).value = S.q[k] || ''; });
+  setDirty(true);
+};
+$('#tSaveCust').onclick = async () => {
+  if (!S.q.to_company?.trim()) return toast('수신 거래처명을 먼저 입력하세요.', true);
+  const [name, ...title] = (S.q.to_contact || '').trim().split(/\s+/);
+  const { data, error } = await sb.from('customers').insert({
+    company_name:S.q.to_company.trim(), contact_name:name || null, contact_title:title.join(' ') || null,
+    phone:S.q.to_phone || null, fax:S.q.to_fax || null, mobile:S.q.to_mobile || null }).select().single();
+  if (error) return fail(error);
+  S.q.customer_id = data.id; await loadCustomers(); $('#custSel').value = String(data.id);
+  setDirty(true); toast(`'${data.company_name}' 거래처를 등록했습니다.`);
+};
+
+// ---------- 저장 / 불러오기 ----------
+function isEmptyItem(it) { return !it.product_name?.trim() && !it.spec?.trim() && !num(it.unit_price); }
+async function saveQuote(asCopy) {
+  const q = { ...S.q };
+  if (asCopy) { q.id = null; q.quote_no = ''; q.quote_date = today(); q.status = 'draft'; }
+  const items = S.items.filter(it => !isEmptyItem(it)).map(it => ({
+    price_list_id: it.price_list_id, product_name: it.product_name, product_name_en: it.product_name_en, spec: it.spec,
+    qty: num(it.qty), unit: it.unit, unit_price: num(it.unit_price), remark: it.remark }));
+  $('#tSave').disabled = true;
+  const { data, error } = await sb.rpc('save_quote', { p_quote: q, p_items: items });
+  $('#tSave').disabled = false;
+  if (error) return fail(error.code === '23505' ? new Error('이미 사용 중인 견적번호입니다. 번호를 바꾸거나 비워두세요.') : error);
+  S.q = Object.fromEntries(QUOTE_FIELDS.map(k => [k, data[k] ?? '']));
+  S.items = items; fillEditor(); setDirty(false);
+  toast(asCopy ? `복사본 ${data.quote_no} 을(를) 만들었습니다.` : `${data.quote_no} 저장 완료`);
+}
+async function openQuote(id, asCopy) {
+  if (S.dirty && !confirm('저장하지 않은 내용이 있습니다. 다른 견적을 열까요?')) return;
+  const [{ data: q, error: e1 }, { data: items, error: e2 }] = await Promise.all([
+    sb.from('quotes').select('*').eq('id', id).single(),
+    sb.from('quote_items').select('*').eq('quote_id', id).order('line_no')]);
+  if (e1 || e2) return fail(e1 || e2);
+  S.q = Object.fromEntries(QUOTE_FIELDS.map(k => [k, q[k] ?? '']));
+  S.items = items.map(it => ({ price_list_id:it.price_list_id, product_name:it.product_name || '', product_name_en:it.product_name_en || '',
+    spec:it.spec || '', qty:Number(it.qty), unit:it.unit || '', unit_price:Number(it.unit_price), remark:it.remark || '' }));
+  if (asCopy) { Object.assign(S.q, { id:null, quote_no:'', quote_date:today(), status:'draft' }); }
+  renderCustSelect(); fillEditor(); setDirty(!!asCopy); switchView('editor');
+  if (asCopy) { previewQuoteNo(); toast('복사본입니다. 저장하면 새 견적번호가 부여됩니다.'); }
+}
+$('#tNew').onclick = () => newQuote(false);
+$('#tSave').onclick = () => saveQuote(false);
+$('#tCopy').onclick = () => {
+  if (!S.q.id) return toast('먼저 저장한 견적에서 사용할 수 있습니다.', true);
+  Object.assign(S.q, { id:null, quote_no:'', quote_date:today(), status:'draft' });
+  fillEditor(); setDirty(true); previewQuoteNo(); toast('복사본입니다. 저장하면 새 견적번호가 부여됩니다.');
+};
+$('#tPrint').onclick = () => {
+  const prev = document.title;
+  document.title = `견적서_${S.q.quote_no || '미저장'}_${S.q.to_company || ''}`;
+  $$('.paper textarea').forEach(autosize);
+  window.print(); document.title = prev;
+};
+window.addEventListener('beforeunload', e => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// ---------- 견적 목록 ----------
+async function loadQuotes() {
+  let qb = sb.from('quotes').select('id,quote_no,quote_date,to_company,project_name,total_amount,status')
+    .order('quote_date', { ascending:false }).order('id', { ascending:false }).limit(500);
+  if ($('#qFrom').value) qb = qb.gte('quote_date', $('#qFrom').value);
+  if ($('#qTo').value) qb = qb.lte('quote_date', $('#qTo').value);
+  if ($('#qStatus').value) qb = qb.eq('status', $('#qStatus').value);
+  const { data, error } = await qb;
+  if (error) return fail(error);
+  S.quotes = data; renderQuotes();
+}
+function renderQuotes() {
+  const t = $('#qSearch').value.trim().toLowerCase();
+  const list = S.quotes.filter(q => !t || `${q.quote_no} ${q.to_company || ''} ${q.project_name || ''}`.toLowerCase().includes(t));
+  $('#qList').innerHTML = list.map(q => `<tr class="click" data-id="${q.id}">
+    <td><b>${esc(q.quote_no)}</b></td><td>${esc(q.quote_date)}</td><td>${esc(q.to_company)}</td><td>${esc(q.project_name)}</td>
+    <td class="num">${fmt(q.total_amount)}</td><td><span class="badge ${q.status}">${STATUS_LABEL[q.status] || q.status}</span></td>
+    <td style="white-space:nowrap"><button class="btn sm" data-act="copy">복사</button> <button class="btn sm danger" data-act="del">삭제</button></td></tr>`).join('')
+    || '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">견적이 없습니다.</td></tr>';
+}
+$('#qSearch').addEventListener('input', renderQuotes);
+$('#qReload').onclick = loadQuotes;
+['#qFrom','#qTo','#qStatus'].forEach(s => $(s).addEventListener('change', loadQuotes));
+$('#qList').addEventListener('click', async e => {
+  const tr = e.target.closest('tr[data-id]'); if (!tr) return;
+  const id = +tr.dataset.id, act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'del') {
+    const q = S.quotes.find(x => x.id === id);
+    if (!confirm(`${q.quote_no} 견적을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    const { error } = await sb.from('quotes').delete().eq('id', id);
+    if (error) return fail(error);
+    if (S.q.id === id) { S.q.id = null; setDirty(true); }
+    toast('삭제했습니다.'); loadQuotes();
+  } else openQuote(id, act === 'copy');
+});
+
+// ---------- 거래처 관리 ----------
+function renderCustList() {
+  const t = $('#cSearch').value.trim().toLowerCase(), all = $('#cShowInactive').checked;
+  const list = S.customers.filter(c => (all || c.is_active) &&
+    (!t || `${c.company_name} ${c.contact_name || ''} ${c.phone || ''} ${c.mobile || ''}`.toLowerCase().includes(t)));
+  $('#cList').innerHTML = list.map(c => `<tr class="click" data-id="${c.id}">
+    <td><b>${esc(c.company_name)}</b></td><td>${esc([c.contact_name, c.contact_title].filter(Boolean).join(' '))}</td>
+    <td>${esc(c.phone)}</td><td>${esc(c.fax)}</td><td>${esc(c.mobile)}</td><td>${esc(c.email)}</td>
+    <td>${c.is_active ? '<span class="badge">사용</span>' : '<span class="badge lost">중지</span>'}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">거래처가 없습니다.</td></tr>';
+}
+$('#cSearch').addEventListener('input', renderCustList);
+$('#cShowInactive').addEventListener('change', renderCustList);
+function editCustomer(c) {
+  S.editCust = c;
+  const f = $('#custForm');
+  ['company_name','contact_name','contact_title','phone','fax','mobile','email','address','biz_no','memo']
+    .forEach(k => { f.elements[k].value = c?.[k] ?? ''; });
+  f.elements.is_active.value = String(c ? c.is_active : true);
+  $('#custTitle').textContent = c ? '거래처 수정' : '새 거래처';
+  $('#custDel').classList.toggle('hidden', !c);
+  openModal('#custModal'); f.elements.company_name.focus();
+}
+$('#cNew').onclick = () => editCustomer(null);
+$('#cList').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-id]'); if (tr) editCustomer(S.customers.find(c => c.id === +tr.dataset.id));
+});
+$('#custForm').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target, row = {};
+  ['company_name','contact_name','contact_title','phone','fax','mobile','email','address','biz_no','memo']
+    .forEach(k => { row[k] = f.elements[k].value.trim() || null; });
+  row.is_active = f.elements.is_active.value === 'true';
+  const res = S.editCust
+    ? await sb.from('customers').update(row).eq('id', S.editCust.id)
+    : await sb.from('customers').insert(row);
+  if (res.error) return fail(res.error);
+  closeModal('#custModal'); await loadCustomers(); toast('거래처를 저장했습니다.');
+};
+$('#custDel').onclick = async () => {
+  const c = S.editCust; if (!c) return;
+  if (!confirm(`'${c.company_name}' 거래처를 삭제할까요?\n이미 작성된 견적서의 수신처 내용은 그대로 남습니다.\n(거래를 중단한 경우 '사용중지'를 권장합니다)`)) return;
+  const { error } = await sb.from('customers').delete().eq('id', c.id);
+  if (error) return fail(error);
+  closeModal('#custModal'); await loadCustomers(); toast('삭제했습니다.');
+};
+
+// ---------- 화면 전환 ----------
+function switchView(v) {
+  $$('.topbar .tab').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  ['editor','list','cust','company'].forEach(k => $(`#${k}View`).classList.toggle('hidden', k !== v));
+  if (v === 'list') loadQuotes();
+  if (v === 'editor') $$('.paper textarea').forEach(autosize);
+}
+$$('.topbar .tab').forEach(b => b.onclick = () => switchView(b.dataset.view));
+
+boot().catch(fail);
+})();
+</script>
+</body>
+</html>
