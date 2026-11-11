@@ -158,6 +158,7 @@ h2{font-size:16px;margin:0 0 12px}
 .p-box{border:1px solid #111;margin-top:6px}
 .p-box .t{display:inline-block;background:#e5e5e5;font-weight:700;padding:1px 8px;letter-spacing:4px;border-right:1px solid #999;border-bottom:1px solid #999}
 .p-box textarea{padding:4px 16px 6px 30px;min-height:24px}
+.p-box textarea.remarks{min-height:calc(3 * 1.35em + 10px)}  /* 특기사항: 최소 3줄 */
 .p-foot{text-align:center;font-weight:700;font-style:italic;letter-spacing:1px;color:#1f4e8c;margin-top:8px}
 .add-row{display:flex;gap:8px;justify-content:center;margin:8px 0 0}
 .print-only{display:none}
@@ -296,7 +297,7 @@ h2{font-size:16px;margin:0 0 12px}
         </div>
 
         <div class="p-box"><span class="t">참고사항</span><textarea data-q="notes" rows="3"></textarea></div>
-        <div class="p-box"><span class="t">특기사항</span><textarea data-q="remarks" rows="2"></textarea></div>
+        <div class="p-box"><span class="t">특기사항</span><textarea data-q="remarks" rows="3" class="remarks"></textarea></div>
         <div class="p-foot" id="pFoot">Drive the world, Link the future</div>
       </div>
     </div>
