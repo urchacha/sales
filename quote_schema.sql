@@ -14,7 +14,7 @@ language plpgsql as $$ begin new.updated_at := now(); return new; end $$;
 create table if not exists public.company_profile (
   id              smallint primary key default 1 check (id = 1),
   company_name    text not null default '㈜ 지플러스코리아',
-  brand_name      text default 'G Plus KOREA',
+  brand_name      text default 'G Plus KOREA',   -- (현재 견적서에 표시 안 함)
   address_line1   text default '경기도 부천시 조마루로385번길 122',
   address_line2   text default '삼보테크노타워 1층 130호',
   address_en      text default '130ho, sambotechno tower 122 / Jomaru-ro 385beon-gil, Bucheon-si, Gyeonggi-do',
@@ -74,6 +74,7 @@ create table if not exists public.quotes (
   to_contact      text,                          -- 수신 담당자 + 직함
   to_phone        text,
   to_fax          text,
+  to_email        text,
   to_mobile       text,
   manager_name    text,                          -- 견적담당
   manager_phone   text,                          -- 연락처
@@ -90,6 +91,9 @@ create table if not exists public.quotes (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
+-- 이전 버전에서 만든 테이블에 수신 E-mail 컬럼 추가
+alter table public.quotes add column if not exists to_email text;
+
 create index if not exists quotes_date_idx     on public.quotes (quote_date desc);
 create index if not exists quotes_customer_idx on public.quotes (customer_id);
 
@@ -173,6 +177,7 @@ begin
     to_contact    = p_quote->>'to_contact',
     to_phone      = p_quote->>'to_phone',
     to_fax        = p_quote->>'to_fax',
+    to_email      = p_quote->>'to_email',
     to_mobile     = p_quote->>'to_mobile',
     manager_name  = p_quote->>'manager_name',
     manager_phone = p_quote->>'manager_phone',
