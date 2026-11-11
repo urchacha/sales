@@ -395,7 +395,7 @@ h2{font-size:16px;margin:0 0 12px}
       </div>
       <div class="pick-scroll">
         <table class="grid-table">
-          <thead><tr><th>품명</th><th>규격</th><th>등급</th><th>제품명칭</th><th>정밀도</th><th class="num" id="pTierHead">기준가</th><th class="num">기준가</th></tr></thead>
+          <thead><tr><th>품명</th><th>규격</th><th>등급</th><th>견적서 품명</th><th>정밀도</th><th class="num" id="pTierHead">기준가</th><th class="num">기준가</th></tr></thead>
           <tbody id="pList"></tbody>
         </table>
       </div>
@@ -474,9 +474,10 @@ const calcTotals = (items, vatMode) => {
   const vat = vatMode === 'included' ? Math.round(supply * 0.1) : 0;
   return { supply_amount: supply, vat_amount: vat, total_amount: supply + vat };
 };
-// 품목 원본: price_table_original (품명 = 제품-시리즈-사이즈-구분-감속비)
+// 품목 원본: price_table_original
+// 견적서 품명 = 제품형태/기어구분 (예: 유성감속기/헬리컬기어)
 const PRICE_TABLE = 'price_table_original';
-const PRICE_COLS = 'id,item_name,spec_code,product,series,size,division,ratio_code,ratio,grade,option,product_type,product_name,source_model,precision_arcmin,match_type,base_price,dealer_price,general_agency_price,special_agency_price';
+const PRICE_COLS = 'id,item_name,spec_code,product,series,size,division,ratio_code,ratio,grade,option,product_type,gear_type,product_name,source_model,precision_arcmin,match_type,base_price,dealer_price,general_agency_price,special_agency_price';
 
 // ----- Supabase DB -----
 const SupaAPI = {
@@ -888,6 +889,11 @@ function openPicker(target) {
   $('#pTierHead').textContent = TIER_LABEL[S.q.price_tier];
   openModal('#pickModal'); renderPicker(); $('#pSearch').focus();
 }
+// 견적서 품명: 제품형태/기어구분 (값이 없으면 제품명칭 → 제품(타입) 순으로 대체)
+function pickName(p) {
+  const n = [p.product_type, p.gear_type].filter(Boolean).join('/');
+  return n || p.product_name || p.product || '';
+}
 function renderPicker() {
   const type = $('#pType').value, ser = $('#pSeries').value, q = $('#pSearch').value.trim().toUpperCase();
   const byType = S.prices.filter(p => !type || p.product === type);
@@ -902,7 +908,7 @@ function renderPicker() {
   $('#pCount').textContent = `${list.length}건`;
   $('#pList').innerHTML = list.map(p => `<tr class="click" data-id="${p.id}">
     <td><b>${esc(p.item_name)}</b>${String(p.match_type || '').startsWith('추정') ? ' <span class="badge" title="' + esc(p.match_type) + '">가격추정</span>' : ''}</td>
-    <td>${esc(p.spec_code)}</td><td>${esc(p.grade)}</td><td>${esc(p.product_name)}</td><td>${p.precision_arcmin != null ? esc(p.precision_arcmin) + "'" : ''}</td>
+    <td>${esc(p.spec_code)}</td><td>${esc(p.grade)}</td><td>${esc(pickName(p))}</td><td>${p.precision_arcmin != null ? esc(p.precision_arcmin) + "'" : ''}</td>
     <td class="num ${p[tier] == null ? 'noprice' : ''}">${p[tier] == null ? '없음' : fmt(p[tier])}</td>
     <td class="num">${p.base_price == null ? '-' : fmt(p.base_price)}</td></tr>`).join('')
     || '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">검색 결과가 없습니다.</td></tr>';
@@ -912,8 +918,8 @@ $('#pSearch').addEventListener('input', renderPicker);
 $('#pList').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
   const p = S.priceById.get(+tr.dataset.id), price = p[S.q.price_tier];
-  // 품명 = 제품-시리즈-사이즈-구분-감속비, 둘째 줄 = (제품명칭), 규격 = 규격 코드
-  const fromPrice = { price_list_id:p.id, product_name:p.item_name, product_name_en:p.product_name ? `(${p.product_name})` : '',
+  // 품명 첫째 줄 = 제품형태(유성감속기), 둘째 줄 = 기어구분(헬리컬기어), 규격 = 규격 코드
+  const fromPrice = { price_list_id:p.id, product_name:p.product_type || pickName(p), product_name_en:p.product_type ? (p.gear_type || '') : '',
     spec:p.spec_code, unit_price:price == null ? 0 : Number(price) };
   if (S.pickTarget == null) {
     const slot = S.items.findIndex(isEmptyItem);

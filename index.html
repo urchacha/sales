@@ -475,7 +475,7 @@ const calcTotals = (items, vatMode) => {
   return { supply_amount: supply, vat_amount: vat, total_amount: supply + vat };
 };
 // 품목 원본: price_table_original
-// 견적서 품명 = 제품형태/기어구분 (예: 유성감속기/헬리컬기어), 둘째 줄 = 제품-시리즈-사이즈-구분-감속비
+// 견적서 품명 = 제품형태/기어구분 (예: 유성감속기/헬리컬기어)
 const PRICE_TABLE = 'price_table_original';
 const PRICE_COLS = 'id,item_name,spec_code,product,series,size,division,ratio_code,ratio,grade,option,product_type,gear_type,product_name,source_model,precision_arcmin,match_type,base_price,dealer_price,general_agency_price,special_agency_price';
 
@@ -918,8 +918,8 @@ $('#pSearch').addEventListener('input', renderPicker);
 $('#pList').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
   const p = S.priceById.get(+tr.dataset.id), price = p[S.q.price_tier];
-  // 품명 = 제품형태/기어구분, 둘째 줄 = 제품-시리즈-사이즈-구분-감속비, 규격 = 규격 코드
-  const fromPrice = { price_list_id:p.id, product_name:pickName(p), product_name_en:p.item_name || '',
+  // 품명 첫째 줄 = 제품형태(유성감속기), 둘째 줄 = 기어구분(헬리컬기어), 규격 = 규격 코드
+  const fromPrice = { price_list_id:p.id, product_name:p.product_type || pickName(p), product_name_en:p.product_type ? (p.gear_type || '') : '',
     spec:p.spec_code, unit_price:price == null ? 0 : Number(price) };
   if (S.pickTarget == null) {
     const slot = S.items.findIndex(isEmptyItem);
