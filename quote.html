@@ -124,8 +124,9 @@ h2{font-size:16px;margin:0 0 12px}
 .p-from td{border-bottom:1px solid #999;padding:2px 4px;height:21px;vertical-align:middle}
 .p-from td.k{width:78px;text-align:center;font-weight:700;white-space:nowrap;letter-spacing:4px}
 .p-from td.k.tight{letter-spacing:0}
-.p-from .stampcell{position:relative}
-.p-from .stamp{position:absolute;right:4px;top:-24px;width:52px;height:52px;object-fit:contain;opacity:.9;pointer-events:none}
+.p-from .cwrap{position:relative;display:inline-block}
+/* 직인: 78px(기존 52px의 1.5배), 회사명 바로 오른쪽에 세로 가운데 맞춤 */
+.p-from .stamp{position:absolute;left:100%;top:50%;transform:translateY(-50%);margin-left:2px;width:78px;height:78px;object-fit:contain;opacity:.9;pointer-events:none;z-index:1}
 
 .p-amount{display:flex;align-items:baseline;gap:8px;margin:10px 0 4px;font-weight:700;font-size:13px}
 .p-amount .lbl{white-space:nowrap}
@@ -266,7 +267,7 @@ h2{font-size:16px;margin:0 0 12px}
             <div class="r"><span class="k">Mobile</span><input data-q="to_mobile"></div>
           </div>
           <div class="p-fromwrap"><table class="p-from">
-            <tr><td class="k">상 호</td><td class="stampcell"><span id="fCompany"></span><img id="fStamp" class="stamp hidden" alt=""></td></tr>
+            <tr><td class="k">상 호</td><td><span class="cwrap"><span id="fCompany"></span><img id="fStamp" class="stamp hidden" alt=""></span></td></tr>
             <tr><td class="k">주 소</td><td id="fAddr1"></td></tr>
             <tr><td class="k"></td><td id="fAddr2"></td></tr>
             <tr><td class="k tight">E-MAIL</td><td id="fEmail"></td></tr>
