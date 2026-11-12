@@ -390,6 +390,7 @@ h2{font-size:16px;margin:0 0 12px}
       <div class="row-flex">
         <select id="pType"><option value="">전체 제품</option></select>
         <select id="pSeries"><option value="">전체 시리즈</option></select>
+        <select id="pSize"><option value="">전체 사이즈</option></select>
         <input class="search" id="pSearch" placeholder="검색 (예: GPD 110 10K, GSN-85-M)">
         <span class="muted" id="pCount"></span>
       </div>
@@ -908,7 +909,14 @@ function renderPicker() {
   $('#pSeries').innerHTML = '<option value="">전체 시리즈</option>' + series.map(s => `<option>${esc(s)}</option>`).join('');
   $('#pSeries').value = series.includes(prevSer) ? prevSer : '';
   const sv = $('#pSeries').value, terms = q.split(/\s+/).filter(Boolean);
-  const list = byType.filter(p => (!sv || p.series === sv) &&
+  // 사이즈: 선택한 제품·시리즈에 있는 사이즈만 (작은 것부터)
+  const bySeries = byType.filter(p => !sv || p.series === sv);
+  const prevSize = $('#pSize').value;
+  const sizes = [...new Set(bySeries.map(p => p.size).filter(v => v != null && v !== '').map(String))].sort((a, b) => a - b);
+  $('#pSize').innerHTML = '<option value="">전체 사이즈</option>' + sizes.map(z => `<option>${esc(z)}</option>`).join('');
+  $('#pSize').value = sizes.includes(prevSize) ? prevSize : '';
+  const zv = $('#pSize').value;
+  const list = bySeries.filter(p => (!zv || String(p.size) === zv) &&
     terms.every(t => `${p.item_name} ${p.spec_code} ${p.source_model || ''} ${p.grade || ''} ${p.product_name || ''}`.toUpperCase().includes(t)));
   const tier = S.q.price_tier;
   $('#pCount').textContent = `${list.length}건`;
@@ -918,7 +926,7 @@ function renderPicker() {
     <td class="num ${p[tier] == null ? 'noprice' : ''}">${p[tier] == null ? '없음' : fmt(p[tier])}${String(p.match_type || '').startsWith('추정') ? ' <span class="badge" title="' + esc(p.match_type) + '">추정</span>' : ''}</td></tr>`).join('')
     || '<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">검색 결과가 없습니다.</td></tr>';
 }
-['#pType','#pSeries'].forEach(s => $(s).addEventListener('change', renderPicker));
+['#pType','#pSeries','#pSize'].forEach(s => $(s).addEventListener('change', renderPicker));
 $('#pSearch').addEventListener('input', renderPicker);
 $('#pList').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-id]'); if (!tr) return;
