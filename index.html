@@ -5,14 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>견적서 작성</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- 설정은 같은 폴더의 config.js 에서 읽습니다 (없으면 첫 화면에서 저장 방식을 선택) -->
+<script src="config.js"></script>
 <script>
-  // ▼ Supabase 프로젝트 정보 (Project Settings > API). 비워두면 첫 화면에서 입력받아 브라우저에 저장합니다.
-  const SUPABASE_URL = '';
-  const SUPABASE_ANON_KEY = '';
-  // ▼ 데이터 저장 방식: 'auto' = 첫 화면에서 선택 / 'local' = data.json + 브라우저 저장 / 'supabase' = Supabase DB
-  const DATA_MODE = 'auto';
-  // ▼ local 모드에서 처음 불러올 JSON 파일 경로 (index.html 과 같은 폴더)
-  const DATA_JSON_URL = 'data.json';
+  const CFG = window.GQ_CONFIG || {};
+  const cfgVal = v => { v = String(v || '').trim(); return /여기에|xxxx/i.test(v) ? '' : v; };   // 예시 값은 빈 값으로 취급
+  const SUPABASE_URL = cfgVal(CFG.SUPABASE_URL).replace(/\/+$/, '');
+  const SUPABASE_ANON_KEY = cfgVal(CFG.SUPABASE_ANON_KEY);
+  // 'auto' = 첫 화면에서 선택 / 'local' = data.json + 브라우저 저장 / 'supabase' = Supabase DB
+  const DATA_MODE = ['auto', 'local', 'supabase'].includes(CFG.DATA_MODE) ? CFG.DATA_MODE : 'auto';
+  const DATA_JSON_URL = CFG.DATA_JSON_URL || 'data.json';
 </script>
 <style>
 :root{
@@ -190,7 +192,7 @@ h2{font-size:16px;margin:0 0 12px}
   <div class="card auth">
     <h1>데이터 저장 방식 선택</h1>
     <p class="muted">처음 한 번만 선택하면 이 브라우저에 기억됩니다.</p>
-    <div class="card" style="margin:12px 0;padding:12px">
+    <div class="card" id="localCard" style="margin:12px 0;padding:12px">
       <b>JSON 파일로 사용 (DB 없이)</b>
       <p class="muted" style="margin:4px 0 8px">data.json 의 가격표·거래처를 불러오고, 작성한 견적은 이 브라우저에 저장합니다. 상단 메뉴의 "JSON 내보내기"로 백업하세요.</p>
       <button class="btn primary" id="cLocal" style="width:100%">JSON 모드로 시작</button>
@@ -250,7 +252,7 @@ h2{font-size:16px;margin:0 0 12px}
       <span class="sep"></span>
       <label>단가 기준
         <select id="tierSel" data-q="price_tier">
-          <option value="base_price">기준가</option>
+          <option value="base_price">기준가(소비자가)</option>
           <option value="dealer_price">딜러가</option>
           <option value="general_agency_price">일반대리점가</option>
           <option value="special_agency_price">특별대리점가</option>
@@ -396,7 +398,7 @@ h2{font-size:16px;margin:0 0 12px}
       </div>
       <div class="pick-scroll">
         <table class="grid-table">
-          <thead><tr><th>견적서 품명</th><th>규격</th><th>등급</th><th>정밀도</th><th class="num" id="pTierHead">기준가</th></tr></thead>
+          <thead><tr><th>견적서 품명</th><th>규격</th><th>등급</th><th>정밀도</th><th class="num" id="pTierHead">기준가(소비자가)</th></tr></thead>
           <tbody id="pList"></tbody>
         </table>
       </div>
@@ -436,7 +438,7 @@ h2{font-size:16px;margin:0 0 12px}
 <script>
 (() => {
 const LS_CONN = 'gq_supabase_conn';
-const TIER_LABEL = {base_price:'기준가', dealer_price:'딜러가', general_agency_price:'일반대리점가', special_agency_price:'특별대리점가'};
+const TIER_LABEL = {base_price:'기준가(소비자가)', dealer_price:'딜러가', general_agency_price:'일반대리점가', special_agency_price:'특별대리점가'};
 const STATUS_LABEL = {draft:'작성중', issued:'발행', won:'수주', lost:'실주'};
 // 제품명칭 → 영문 품명 (견적서 품명 2행)
 const EN_NAME = {
@@ -625,7 +627,8 @@ function toast(msg, err) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('hidden'), err ? 5000 : 2200);
 }
 function fail(e) { console.error(e); toast(e?.message || String(e), true); }
-function showOnly(id) { ['#connectView','#loginView','#app'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function showOnly(id) {
+  if (id === '#connectView') $('#localCard').classList.toggle('hidden', DATA_MODE === 'supabase'); ['#connectView','#loginView','#app'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 $$('.modal-bg').forEach(m => {
@@ -683,7 +686,10 @@ async function boot() {
   if (mode === 'local') { API = LocalAPI; await LocalAPI.init(); startApp(); return; }
   API = SupaAPI;
   const c = getConn();
-  if (!c || (mode !== 'supabase' && !SUPABASE_URL)) { showOnly('#connectView'); return; }
+  if (!c || (mode !== 'supabase' && !SUPABASE_URL)) {
+    if (DATA_MODE === 'supabase') setTimeout(() => toast('config.js 에 SUPABASE_URL 과 SUPABASE_ANON_KEY 를 입력하세요.', true), 300);
+    showOnly('#connectView'); return;
+  }
   if (!window.supabase) { toast('Supabase 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하세요.', true); showOnly('#connectView'); return; }
   try { sb = window.supabase.createClient(c.url, c.key); }
   catch (e) { fail(e); showOnly('#connectView'); return; }
