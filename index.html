@@ -395,7 +395,7 @@ h2{font-size:16px;margin:0 0 12px}
       </div>
       <div class="pick-scroll">
         <table class="grid-table">
-          <thead><tr><th>품명</th><th>규격</th><th>등급</th><th>견적서 품명</th><th>정밀도</th><th class="num" id="pTierHead">기준가</th><th class="num">기준가</th></tr></thead>
+          <thead><tr><th>견적서 품명</th><th>규격</th><th>등급</th><th>정밀도</th><th class="num" id="pTierHead">기준가</th></tr></thead>
           <tbody id="pList"></tbody>
         </table>
       </div>
@@ -913,11 +913,10 @@ function renderPicker() {
   const tier = S.q.price_tier;
   $('#pCount').textContent = `${list.length}건`;
   $('#pList').innerHTML = list.map(p => `<tr class="click" data-id="${p.id}">
-    <td><b>${esc(p.item_name)}</b>${String(p.match_type || '').startsWith('추정') ? ' <span class="badge" title="' + esc(p.match_type) + '">가격추정</span>' : ''}</td>
-    <td>${esc(p.spec_code)}</td><td>${esc(p.grade)}</td><td>${esc(pickName(p))}</td><td>${p.precision_arcmin != null ? esc(p.precision_arcmin) + "'" : ''}</td>
-    <td class="num ${p[tier] == null ? 'noprice' : ''}">${p[tier] == null ? '없음' : fmt(p[tier])}</td>
-    <td class="num">${p.base_price == null ? '-' : fmt(p.base_price)}</td></tr>`).join('')
-    || '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">검색 결과가 없습니다.</td></tr>';
+    <td>${esc(pickName(p))}</td><td><b>${esc(p.spec_code)}</b></td><td>${esc(p.grade)}</td>
+    <td>${p.precision_arcmin != null ? esc(p.precision_arcmin) + "'" : ''}</td>
+    <td class="num ${p[tier] == null ? 'noprice' : ''}">${p[tier] == null ? '없음' : fmt(p[tier])}${String(p.match_type || '').startsWith('추정') ? ' <span class="badge" title="' + esc(p.match_type) + '">추정</span>' : ''}</td></tr>`).join('')
+    || '<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">검색 결과가 없습니다.</td></tr>';
 }
 ['#pType','#pSeries'].forEach(s => $(s).addEventListener('change', renderPicker));
 $('#pSearch').addEventListener('input', renderPicker);
