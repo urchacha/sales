@@ -477,7 +477,7 @@ const calcTotals = (items, vatMode) => {
 // 품목 원본: price_table_original
 // 견적서 품명 = 제품형태/기어구분 (예: 유성감속기/헬리컬기어)
 const PRICE_TABLE = 'price_table_original';
-const PRICE_COLS = 'id,item_name,spec_code,product,series,size,division,ratio_code,ratio,grade,option,product_type,gear_type,product_name,source_model,precision_arcmin,match_type,base_price,dealer_price,general_agency_price,special_agency_price';
+const PRICE_COLS = 'id,spec_code,product_en,series,size,division,ratio_code,ratio,grade,option,product_kr,gear_type,product_feature,source_model,precision_arcmin,match_type,base_price,dealer_price,general_agency_price,special_agency_price';
 
 // ----- Supabase DB -----
 const SupaAPI = {
@@ -712,7 +712,13 @@ async function loadCustomers() {
   renderCustSelect(); renderCustList();
 }
 async function loadPrices() {
-  S.prices = await API.listPrices();
+  // product_en / product_kr 컬럼을 화면용 이름으로 맞추고, 식별명(제품-시리즈-사이즈-구분-감속비)을 만든다
+  S.prices = (await API.listPrices()).map(p => {
+    const product = p.product_en ?? p.product ?? '';
+    const product_type = p.product_kr ?? p.product_type ?? null;
+    const item_name = p.item_name || [product, p.series, p.size, p.division, p.ratio_code].filter(v => v != null && v !== '').join('-');
+    return { ...p, product, product_type, item_name };
+  });
   S.priceById = new Map(S.prices.map(p => [p.id, p]));
   const types = [...new Set(S.prices.map(p => p.product).filter(Boolean))];
   $('#pType').innerHTML = '<option value="">전체 제품</option>' + types.map(t => `<option>${esc(t)}</option>`).join('');
