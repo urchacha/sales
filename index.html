@@ -139,9 +139,9 @@ h2{font-size:16px;margin:0 0 12px}
 .p-amount .won{margin-left:16px}
 .p-amount .val{min-width:180px;text-align:right;border-bottom:1px solid #111;padding:0 4px;font-size:14px}
 .p-amount select{width:auto;font-weight:400;font-size:12px}
-.p-pj{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin:14px 0 4px}
-.p-pj span{font-weight:700;white-space:nowrap}
-.p-pj input{width:260px;text-align:center}
+.p-pj{display:flex;justify-content:flex-end;align-items:flex-start;gap:8px;margin:14px 0 4px}
+.p-pj span{font-weight:700;white-space:nowrap;line-height:1.35;padding-top:1px}
+.p-pj textarea{width:300px;text-align:center;line-height:1.35}  /* 길면 자동 줄바꿈(2줄 이상) */
 
 .p-items{width:100%;border-collapse:collapse;table-layout:fixed;border:2px solid #111}
 .p-items th{background:#eee;border:1px solid #555;padding:4px 2px;font-weight:700;letter-spacing:3px}
@@ -303,7 +303,7 @@ h2{font-size:16px;margin:0 0 12px}
           <span class="val" id="pTotal">0</span>
           <select data-q="vat_mode"><option value="excluded">(V.A.T 별도)</option><option value="included">(V.A.T 포함)</option></select>
         </div>
-        <div class="p-pj"><span>P.J :</span><input data-q="project_name" placeholder="프로젝트명"></div>
+        <div class="p-pj"><span>P.J :</span><textarea data-q="project_name" rows="1" placeholder="프로젝트명"></textarea></div>
 
         <table class="p-items">
           <colgroup><col style="width:6%"><col style="width:17%"><col style="width:23%"><col style="width:7%"><col style="width:8%"><col style="width:12%"><col style="width:13%"><col style="width:14%"></colgroup>
@@ -997,8 +997,11 @@ async function saveQuote(asCopy) {
   try { data = await API.saveQuote(q, items); }
   catch (error) { $('#tSave').disabled = false; return fail(error.code === '23505' ? new Error('이미 사용 중인 견적번호입니다. 번호를 바꾸거나 비워두세요.') : error); }
   $('#tSave').disabled = false;
-  S.q = Object.fromEntries(QUOTE_FIELDS.map(k => [k, data[k] ?? '']));
-  S.items = items; fillEditor(); setDirty(false);
+  // DB 가 예전 버전이라 돌려주지 않은 칸(예: to_email)은 화면 입력값을 지우지 않고 안내
+  const lost = QUOTE_FIELDS.filter(k => k !== 'id' && q[k] && (data[k] === undefined || data[k] === null || data[k] === ''));
+  S.q = Object.fromEntries(QUOTE_FIELDS.map(k => [k, lost.includes(k) ? q[k] : (data[k] ?? '')]));
+  S.items = items; fillEditor(); setDirty(lost.length > 0);
+  if (lost.includes('to_email')) setTimeout(() => toast('고객 E-mail 이 DB 에 저장되지 않았습니다. Supabase 에서 fix_quote_email.sql 을 실행하세요.', true), 2400);
   toast(asCopy ? `복사본 ${data.quote_no} 을(를) 만들었습니다.` : `${data.quote_no} 저장 완료`);
 }
 async function openQuote(id, asCopy) {
